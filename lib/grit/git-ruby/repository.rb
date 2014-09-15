@@ -93,7 +93,7 @@ module Grit
         end
 
 #        puts "*#{sha1o}*"
-        raise NoSuchShaFound "dit_dir == #{git_dir}; sha1 == #{sha1}"
+        raise NoSuchShaFound, "dit_dir == #{git_dir}; sha1 == #{sha1}"
       end
 
       def cached(key, object, do_cache = true)
