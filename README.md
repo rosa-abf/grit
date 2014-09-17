@@ -1,5 +1,32 @@
-Grit
-====
+## Grit. GitLab fork 
+
+#### Code status
+
+[![CI](http://ci.gitlab.org/projects/5/status?ref=master)](http://ci.gitlab.org/projects/5?ref=master)
+[![build status](https://secure.travis-ci.org/gitlabhq/grit.png)](https://travis-ci.org/gitlabhq/grit)
+[![Gem Version](https://badge.fury.io/rb/gitlab-grit.svg)](http://badge.fury.io/rb/gitlab-grit)
+[![Code Climate](https://codeclimate.com/github/gitlabhq/grit.png)](https://codeclimate.com/github/gitlabhq/grit)
+[![Coverage Status](https://coveralls.io/repos/gitlabhq/grit/badge.png?branch=master)](https://coveralls.io/r/gitlabhq/grit)
+
+
+## Fork changes
+
+We patched existing grit library to use it inside GitLab
+
+* Added grep method to look for files
+* Fixed commits parsing for signed commits
+* Encoding fixes
+* Cleanup and improve code style
+* Handle filenames with spaces
+* Fixes symlinks omission from diff
+* Added Gemfile
+* Ruby 2.0 support
+* Automatically set the `--work-tree=` option for Git
+* Remove `chdir:` option from Grit::Git#native
+* and much more small fixes
+
+
+## Grit
 
 Grit gives you object oriented read/write access to Git repositories via Ruby.
 The main goals are stability and performance. To this end, some of the
@@ -12,15 +39,17 @@ This software was developed to power GitHub, and should be considered
 production ready. An extensive test suite is provided to verify its
 correctness.
 
-Grit is maintained by Tom Preston-Werner, Scott Chacon, Chris Wanstrath, and
+Original Grit is maintained by Tom Preston-Werner, Scott Chacon, Chris Wanstrath, and
 PJ Hyett.
+
+This fork is maintained by GitLab.com
 
 This documentation is accurate as of Grit 2.3.
 
 
 ## Requirements
 
-* git (http://git-scm.com) tested with 1.7.2.1
+* git (http://git-scm.com) tested with 1.7.4.6
 
 
 ## Install
@@ -34,19 +63,15 @@ Easiest install is via RubyGems:
 
 Grit's Git repo is available on GitHub, which can be browsed at:
 
-    http://github.com/mojombo/grit
+    http://github.com/gitlabhq/grit
 
 and cloned with:
 
-    git clone git://github.com/mojombo/grit.git
+    git clone git://github.com/gitlabhq/grit.git
 
+If you're installing from source, you can use Bundler to pick up all the gems:
 
-### Development
-
-You will need these gems to get tests to pass:
-
-* mocha
-
+    $ bundle install
 
 ### Contributing
 

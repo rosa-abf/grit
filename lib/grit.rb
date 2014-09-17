@@ -47,9 +47,10 @@ require 'grit/status'
 require 'grit/submodule'
 require 'grit/blame'
 require 'grit/merge'
+require 'grit/grep'
 
 module Grit
-  VERSION = '2.5.0'
+  VERSION = File.read(File.expand_path("../../VERSION", __FILE__)).chomp.strip
 
   class << self
     # Set +debug+ to true to log all git calls and responses
@@ -73,3 +74,7 @@ module Grit
     VERSION
   end
 end
+
+# Include grit_ext
+require 'charlock_holmes'
+require 'grit_ext'

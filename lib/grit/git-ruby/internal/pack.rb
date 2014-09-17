@@ -14,6 +14,7 @@ require 'grit/git-ruby/internal/raw_object'
 require 'grit/git-ruby/internal/file_window'
 
 PACK_IDX_SIGNATURE = [0xFF, 0x74, 0x4F, 0x63]
+PACK_SIGNATURE = "PACK"
 
 module Grit
   module GitRuby

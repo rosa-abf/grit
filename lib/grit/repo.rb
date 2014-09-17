@@ -1,6 +1,7 @@
 module Grit
-
   class Repo
+    include POSIX::Spawn
+
     DAEMON_EXPORT_FILE = 'git-daemon-export-ok'
     BATCH_PARSERS      = {
       'commit' => ::Grit::Commit
@@ -53,7 +54,7 @@ module Grit
         raise NoSuchPathError.new(epath)
       end
 
-      self.git = Git.new(self.path)
+      self.git = Git.new(self.path, work_tree: self.working_dir)
     end
 
     # Public: Initialize a git repository (create it on the filesystem). By
@@ -213,7 +214,12 @@ module Grit
       Head.find_all(self)
     end
 
+    def head_count
+      Head.count_all(self)
+    end
+
     alias_method :branches, :heads
+    alias_method :branch_count, :head_count
 
     def get_head(head_name)
       heads.find { |h| h.name == head_name }
@@ -278,6 +284,10 @@ module Grit
       Tag.find_all(self)
     end
 
+    def tag_count
+      Tag.count_all(self)
+    end
+
     # Finds the most recent annotated tag name that is reachable from a commit.
     #
     #   @repo.recent_tag_name('master')
@@ -308,6 +318,10 @@ module Grit
     # Returns Grit::Remote[] (baked)
     def remotes
       Remote.find_all(self)
+    end
+
+    def remote_count
+      Remote.count_all(self)
     end
 
     def remote_list
@@ -569,61 +583,29 @@ module Grit
       Commit.diff(self, commit)
     end
 
-    # Archive the given treeish
-    #   +treeish+ is the treeish name/id (default 'master')
-    #   +prefix+ is the optional prefix
-    #
-    # Examples
-    #   repo.archive_tar
-    #   # => <String containing tar archive>
-    #
-    #   repo.archive_tar('a87ff14')
-    #   # => <String containing tar archive for commit a87ff14>
-    #
-    #   repo.archive_tar('master', 'myproject/')
-    #   # => <String containing tar archive and prefixed with 'myproject/'>
-    #
-    # Returns String (containing tar archive)
-    def archive_tar(treeish = 'master', prefix = nil)
-      options = {}
-      options[:prefix] = prefix if prefix
-      self.git.archive(options, treeish)
-    end
-
-    # Archive and gzip the given treeish
-    #   +treeish+ is the treeish name/id (default 'master')
-    #   +prefix+ is the optional prefix
-    #
-    # Examples
-    #   repo.archive_tar_gz
-    #   # => <String containing tar.gz archive>
-    #
-    #   repo.archive_tar_gz('a87ff14')
-    #   # => <String containing tar.gz archive for commit a87ff14>
-    #
-    #   repo.archive_tar_gz('master', 'myproject/')
-    #   # => <String containing tar.gz archive and prefixed with 'myproject/'>
-    #
-    # Returns String (containing tar.gz archive)
-    def archive_tar_gz(treeish = 'master', prefix = nil)
-      options = {}
-      options[:prefix] = prefix if prefix
-      self.git.archive(options, treeish, "| gzip -n")
-    end
-
     # Write an archive directly to a file
     #   +treeish+ is the treeish name/id (default 'master')
     #   +prefix+ is the optional prefix (default nil)
     #   +filename+ is the name of the file (default 'archive.tar.gz')
     #   +format+ is the optional format (default nil)
-    #   +pipe+ is the command to run the output through (default 'gzip')
+    #   +compress_cmd+ is the command to run the output through (default ['gzip'])
     #
     # Returns nothing
-    def archive_to_file(treeish = 'master', prefix = nil, filename = 'archive.tar.gz', format = nil, pipe = "gzip")
-      options = {}
-      options[:prefix] = prefix if prefix
-      options[:format] = format if format
-      self.git.archive(options, treeish, "| #{pipe} > #{filename}")
+    def archive_to_file(treeish = 'master', prefix = nil, filename = 'archive.tar.gz', format = nil, compress_cmd = %W(gzip))
+      git_archive_cmd = %W(#{Git.git_binary} --git-dir=#{self.git.git_dir} archive)
+      git_archive_cmd << "--prefix=#{prefix}" if prefix
+      git_archive_cmd << "--format=#{format}" if format
+      git_archive_cmd += %W(-- #{treeish})
+
+      open(filename, 'w') do |file|
+        pipe_rd, pipe_wr = IO.pipe
+        git_archive_pid = spawn(*git_archive_cmd, :out => pipe_wr)
+        pipe_wr.close
+        compress_pid = spawn(*compress_cmd, :in => pipe_rd, :out => file)
+        pipe_rd.close
+        Process.waitpid(git_archive_pid)
+        Process.waitpid(compress_pid)
+      end
     end
 
     # Enable git-daemon serving of this repository by writing the
@@ -700,10 +682,128 @@ module Grit
       end
     end
 
+    def grep(searchtext, contextlines = 3, branch = 'master')
+      context_arg = '-C ' + contextlines.to_s
+      result = git.native(:grep, {}, '-n', '-E', '-i', '-z', '--heading', '--break', context_arg, searchtext, branch).encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+      greps = []
+      filematches = result.split("\n\n")
+      filematches.each do |filematch|
+        binary = false
+        file = ''
+        matches = filematch.split("--\n")
+        matches.each_with_index do |match, i|
+          content = []
+          startline = 0
+          lines = match.split("\n")
+          if i == 0
+            text = lines.first
+            lines.slice!(0)
+            file = text[/^Binary file (.+) matches$/]
+            if file
+              binary = true
+            else
+              text.slice! /^#{branch}:/
+              file = text
+            end
+          end
+          lines.each_with_index do |line, j|
+            line.chomp!
+            number, text = line.split("\0", 2)
+            if j == 0
+              startline = number.to_i
+            end
+            content << text
+          end
+          greps << Grit::Grep.new(self, file, startline, content, binary)
+        end
+      end
+      greps
+    end
+
+    def final_escape(str)
+      str.gsub('"', '\\"')
+    end
+
+    # Accepts quoted strings and negation (-) operator in search strings
+    def advanced_grep(searchtext, contextlines = 3, branch = 'master')
+
+      # If there's not an even number of quote marks, get rid of them all
+      searchtext = searchtext.gsub('"', '') if searchtext.count('"') % 2 == 1
+
+      # Escape the text, but allow spaces and quote marks (by unescaping them)
+      searchtext = Shellwords.shellescape(searchtext).gsub('\ ',' ').gsub('\\"','"')
+
+      # Shellwords happens to parse search terms really nicely!
+      terms = Shellwords.split(searchtext)
+
+      term_args = []
+      negative_args = []
+
+      # For each search term (either a word or a quoted string), add the relevant term argument to either the term
+      # args array, or the negative args array, used for two separate calls to git grep
+      terms.each do |term|
+        arg_array = term_args
+        if term[0] == '-'
+          arg_array = negative_args
+          term = term[1..-1]
+        end
+        arg_array.push '-e'
+        arg_array.push final_escape(term)
+      end
+
+      context_arg = '-C ' + contextlines.to_s
+      result = git.native(:grep, {pipeline: false}, '-n', '-F', '-i', '-z', '--heading', '--break', '--all-match', context_arg, *term_args, branch).encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+
+      # Find files that match the negated terms; these will be excluded from the results
+      excluded_files = Array.new
+      unless negative_args.empty?
+        negative = git.native(:grep, {pipeline: false}, '-F', '-i', '--files-with-matches', *negative_args, branch).encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+        excluded_files = negative.split("\n").map {|text| text.partition(':')[2]}
+      end
+
+      greps = []
+      filematches = result.split("\n\n")
+      filematches.each do |filematch|
+        binary = false
+        file = ''
+        matches = filematch.split("--\n")
+        matches.each_with_index do |match, i|
+          content = []
+          startline = 0
+          lines = match.split("\n")
+          if i == 0
+            text = lines.first
+            lines.slice!(0)
+            file = text[/^Binary file (.+) matches$/]
+            if file
+              puts "BINARY #{file}"
+              binary = true
+            else
+              text.slice! /^#{branch}:/
+              file = text
+            end
+          end
+
+          # Skip this result if the file is to be ignored (due to a negative match)
+          next if excluded_files.include? file || ( excluded_files.include? text[/^Binary file (.+) matches$/, 1].partition(':')[2] )
+
+          lines.each_with_index do |line, j|
+            line.chomp!
+            number, text = line.split("\0", 2)
+            if j == 0
+              startline = number.to_i
+            end
+            content << text
+          end
+          greps << Grit::Grep.new(self, file, startline, content, binary)
+        end
+      end
+      greps
+    end
+
     # Pretty object inspection
     def inspect
       %Q{#<Grit::Repo "#{@path}">}
     end
   end # Repo
-
 end # Grit

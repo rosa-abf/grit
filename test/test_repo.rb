@@ -83,7 +83,7 @@ class TestRepo < Test::Unit::TestCase
 
   def test_heads_should_populate_head_data
     @r = Repo.new(File.join(File.dirname(__FILE__), *%w[dot_git]), :is_bare => true)
-    head = @r.heads[1]
+    head = @r.heads[2]
 
     assert_equal 'test/master', head.name
     assert_equal '2d3acf90f35989df8f262dc50beadc4ee3ae1560', head.commit.id
@@ -253,13 +253,13 @@ class TestRepo < Test::Unit::TestCase
   # diff
 
   def test_diff
-    Git.any_instance.expects(:diff).with({}, 'master^', 'master', '--')
+    Git.any_instance.expects(:native).with('diff', {}, 'master^', 'master', '--')
     @r.diff('master^', 'master')
 
-    Git.any_instance.expects(:diff).with({}, 'master^', 'master', '--', 'foo/bar')
+    Git.any_instance.expects(:native).with('diff', {}, 'master^', 'master', '--', 'foo/bar')
     @r.diff('master^', 'master', 'foo/bar')
 
-    Git.any_instance.expects(:diff).with({}, 'master^', 'master', '--', 'foo/bar', 'foo/baz')
+    Git.any_instance.expects(:native).with('diff', {}, 'master^', 'master', '--', 'foo/bar', 'foo/baz')
     @r.diff('master^', 'master', 'foo/bar', 'foo/baz')
   end
 
@@ -272,7 +272,7 @@ class TestRepo < Test::Unit::TestCase
 
   # commit_diff
 
-  def test_diff
+  def test_commit_diff
     Git.any_instance.expects(:diff).returns(fixture('diff_p'))
     diffs = @r.commit_diff('master')
 
@@ -285,12 +285,6 @@ class TestRepo < Test::Unit::TestCase
 
   def test_archive_tar
     #@r.archive_tar  -- no assertion being done here
-  end
-
-  # archive_tar_gz
-
-  def test_archive_tar_gz
-    #@r.archive_tar_gz -- again, no assertion
   end
 
   # enable_daemon_serve
@@ -415,5 +409,45 @@ class TestRepo < Test::Unit::TestCase
     before = ['634396b2f541a9f2d58b00be1a07f0c358b999b3', 'deadbeef']
     after = ['634396b2f541a9f2d58b00be1a07f0c358b999b3']
     assert_equal after, @r.git.select_existing_objects(before)
+  end
+
+  def test_grep
+    res = @r.grep('def test_select_existing_objects', 1, 'master')
+    assert_equal 1, res.length
+    assert_equal 413, res.first.startline
+    assert_equal 'test/test_repo.rb', res.first.filename
+    assert_equal '  def test_select_existing_objects', res.first.content[1]
+  end
+
+  def test_advanced_grep
+    # The quoted string should behave as above
+    res = @r.advanced_grep('"def test_select_existing_objects"', 1, 'master')
+    assert_equal 1, res.length
+    assert_equal 413, res.first.startline
+    assert_equal 'test/test_repo.rb', res.first.filename
+    assert_equal '  def test_select_existing_objects', res.first.content[1]
+
+    # An unquoted string means that all words must be in the file, but not necessarily in sequence
+    res = @r.advanced_grep('test_gc_auto test_archive_tar_gz', 1, 'master')
+    assert_equal 2, res.length
+    assert_equal 291, res[0].startline
+    assert_equal 311, res[1].startline
+    assert_equal 'test/test_repo.rb', res[0].filename
+    assert_equal 'test/test_repo.rb', res[1].filename
+
+    # This combination of quoted and unquoted terms should return the same results as before
+    res = @r.advanced_grep('test_gc_auto "def test_archive_tar_gz"', 1, 'master')
+    assert_equal 2, res.length
+    assert_equal 291, res[0].startline
+    assert_equal 311, res[1].startline
+    assert_equal 'test/test_repo.rb', res[0].filename
+    assert_equal 'test/test_repo.rb', res[1].filename
+
+    # With all these negations, only the 7 results from loose.rb should be returned
+    res = @r.advanced_grep('header -replace -state -Accept -repository -patch', 1, 'master')
+    assert_equal 7, res.length
+    assert_equal 44, res[0].startline
+    assert_equal 'lib/grit/git-ruby/internal/loose.rb', res[0].filename
+
   end
 end
