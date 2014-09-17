@@ -343,7 +343,9 @@ module Grit
           :timeout => (Grit::Git.git_timeout if timeout == true),
           :max     => (Grit::Git.git_max_size if timeout == true)
         }]))
-      process.out.force_encoding('UTF-8')
+      process.out
+             .force_encoding('UTF-8').encode!('UTF-8', 'UTF-8', invalid: :replace, undef: :replace, replace: '?')
+             .scrub('')
 
       Grit.log(process.out) if Grit.debug
       Grit.log(process.err) if Grit.debug
