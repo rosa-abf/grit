@@ -1,5 +1,5 @@
 Gem::Specification.new do |s|
-  s.name        = 'gitlab-grit'
+  s.name        = 'grit'
   s.version     = `cat VERSION`
   s.date        = Time.now.strftime("%Y-%m-%d")
   s.license     = 'MIT'
