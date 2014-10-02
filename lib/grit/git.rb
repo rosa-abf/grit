@@ -23,14 +23,18 @@ module Grit
       # The integer exit status.
       attr_reader :exitstatus
 
+      # Everything output on the command's stdout as a String.
+      attr_reader :out
+
       # Everything output on the command's stderr as a String.
       attr_reader :err
 
-      def initialize(command, exitstatus=nil, err='')
+      def initialize(command, exitstatus=nil, err='', out='')
         if exitstatus
           @command = command
           @exitstatus = exitstatus
           @err = err
+          @out = out
           message = "Command failed [#{exitstatus}]: #{command}"
           message << "\n\n" << err unless err.nil? || err.empty?
           super message
@@ -93,9 +97,9 @@ module Grit
 
     attr_accessor :git_dir, :bytes_read, :work_tree
 
-    def initialize(git_dir)
+    def initialize(git_dir, options={})
       self.git_dir    = git_dir
-      self.work_tree  = git_dir.gsub(/\/\.git$/,'')
+      self.work_tree  = options[:work_tree]
       self.bytes_read = 0
     end
 
@@ -167,11 +171,7 @@ module Grit
     end
 
     def list_remotes
-      remotes = []
-      Dir.chdir(File.join(self.git_dir, 'refs/remotes')) do
-        remotes = Dir.glob('*')
-      end
-      remotes
+      Dir.glob(File.join(self.git_dir, 'refs/remotes/*'))
     rescue
       []
     end
@@ -320,20 +320,16 @@ module Grit
       raise_errors = options.delete(:raise)
       process_info = options.delete(:process_info)
 
-      # fall back to using a shell when the last argument looks like it wants to
-      # start a pipeline for compatibility with previous versions of grit.
-      return run(prefix, cmd, '', options, args) if args[-1].to_s[0] == ?|
-
       # more options
       input    = options.delete(:input)
       timeout  = options.delete(:timeout); timeout = true if timeout.nil?
       base     = options.delete(:base);    base    = true if base.nil?
-      chdir    = options.delete(:chdir)
 
       # build up the git process argv
       argv = []
       argv << Git.git_binary
       argv << "--git-dir=#{git_dir}" if base
+      argv << "--work-tree=#{work_tree}" if work_tree
       argv << cmd.to_s.tr('_', '-')
       argv.concat(options_to_argv(options))
       argv.concat(args)
@@ -344,17 +340,19 @@ module Grit
       process =
         Child.new(env, *(argv + [{
           :input   => input,
-          :chdir   => chdir,
           :timeout => (Grit::Git.git_timeout if timeout == true),
           :max     => (Grit::Git.git_max_size if timeout == true)
         }]))
-      process.out.default_encoding!
+      process.out
+             .force_encoding('UTF-8').encode!('UTF-8', 'UTF-8', invalid: :replace, undef: :replace, replace: '?')
+             .scrub('')
+
       Grit.log(process.out) if Grit.debug
       Grit.log(process.err) if Grit.debug
 
       status = process.status
       if raise_errors && !status.success?
-        raise CommandFailed.new(argv.join(' '), status.exitstatus, process.err)
+        raise CommandFailed.new(argv.join(' '), status.exitstatus, process.err, process.out)
       elsif process_info
         [status.exitstatus, process.out, process.err]
       else
@@ -416,55 +414,6 @@ module Grit
       else
         yield
       end
-    end
-
-    # DEPRECATED OPEN3-BASED COMMAND EXECUTION
-
-    def run(prefix, cmd, postfix, options, args, &block)
-      timeout  = options.delete(:timeout) rescue nil
-      timeout  = true if timeout.nil?
-
-      base     = options.delete(:base) rescue nil
-      base     = true if base.nil?
-
-      if input = options.delete(:input)
-        block = lambda { |stdin| stdin.write(input) }
-      end
-
-      opt_args = transform_options(options)
-
-      if RUBY_PLATFORM.downcase =~ /mswin(?!ce)|mingw|bccwin/
-        ext_args = args.reject { |a| a.empty? }.map { |a| (a == '--' || a[0].chr == '|' || Grit.no_quote) ? a : "\"#{e(a)}\"" }
-        gitdir = base ? "--git-dir=\"#{self.git_dir}\"" : ""
-        call = "#{prefix}#{Git.git_binary} #{gitdir} #{cmd.to_s.gsub(/_/, '-')} #{(opt_args + ext_args).join(' ')}#{e(postfix)}"
-      else
-        ext_args = args.reject { |a| a.empty? }.map { |a| (a == '--' || a[0].chr == '|' || Grit.no_quote) ? a : "'#{e(a)}'" }
-        gitdir = base ? "--git-dir='#{self.git_dir}'" : ""
-        call = "#{prefix}#{Git.git_binary} #{gitdir} #{cmd.to_s.gsub(/_/, '-')} #{(opt_args + ext_args).join(' ')}#{e(postfix)}"
-      end
-
-      Grit.log(call) if Grit.debug
-      response, err = timeout ? sh(call, &block) : wild_sh(call, &block)
-      Grit.log(response) if Grit.debug
-      Grit.log(err) if Grit.debug
-      response
-    end
-
-    def sh(command, &block)
-      process =
-        Child.new(
-          command,
-          :timeout => Git.git_timeout,
-          :max     => Git.git_max_size
-        )
-      [process.out, process.err]
-    rescue TimeoutExceeded, MaximumOutputExceeded
-      raise GitTimeout, command
-    end
-
-    def wild_sh(command, &block)
-      process = Child.new(command)
-      [process.out, process.err]
     end
 
     # Transform Ruby style options into git command line options
