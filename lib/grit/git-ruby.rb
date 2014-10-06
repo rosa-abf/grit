@@ -113,30 +113,30 @@ module Grit
       return method_missing('rev-parse', options, string).chomp
     end
 
-    def refs(options, prefix)
+    def refs(options, orig_prefix)
       refs = []
       already = {}
-      Dir.chdir(@git_dir) do
-        files = Dir.glob(prefix + '/**/*')
-        files.each do |ref|
-          next if !File.file?(ref)
-          id = File.read(ref).chomp
-          name = ref.sub("#{prefix}/", '')
-          if !already[name]
-            refs << "#{name} #{id}"
-            already[name] = true
-          end
-        end
+      prefix = File.join @git_dir, orig_prefix
 
-        if File.file?('packed-refs')
-          File.readlines('packed-refs').each do |line|
-            if m = /^(\w{40}) (.*?)$/.match(line)
-              next if !Regexp.new('^' + prefix).match(m[2])
-              name = m[2].sub("#{prefix}/", '')
-              if !already[name]
-                refs << "#{name} #{m[1]}"
-                already[name] = true
-              end
+      files = Dir.glob(prefix + '/**/*')
+      files.each do |ref|
+        next if !File.file?(ref)
+        id = File.read(ref).chomp
+        name = ref.sub("#{prefix}/", '')
+        if !already[name]
+          refs << "#{name} #{id}"
+          already[name] = true
+        end
+      end
+
+      if File.file?('packed-refs')
+        File.readlines('packed-refs').each do |line|
+          if m = /^(\w{40}) (.*?)$/.match(line)
+            next if !Regexp.new('^' + orig_prefix).match(m[2])
+            name = m[2].sub("#{orig_prefix}/", '')
+            if !already[name]
+              refs << "#{name} #{m[1]}"
+              already[name] = true
             end
           end
         end
@@ -145,50 +145,50 @@ module Grit
       refs.join("\n")
     end
 
-    def tags(options, prefix)
+    def tags(options, orig_prefix)
       refs = []
       already = {}
+      prefix = File.join @git_dir, orig_prefix
 
-      Dir.chdir(repo.path) do
-        files = Dir.glob(prefix + '/**/*')
+      files = Dir.glob(prefix + '/**/*')
 
-        files.each do |ref|
-          next if !File.file?(ref)
+      files.each do |ref|
+        next if !File.file?(ref)
 
-          id = File.read(ref).chomp
-          name = ref.sub("#{prefix}/", '')
+        id = File.read(ref).chomp
+        name = ref.sub("#{prefix}/", '')
 
-          if !already[name]
-            refs << "#{name} #{id}"
-            already[name] = true
-          end
+        if !already[name]
+          refs << "#{name} #{id}"
+          already[name] = true
         end
+      end
 
-        if File.file?('packed-refs')
-          lines = File.readlines('packed-refs')
-          lines.each_with_index do |line, i|
-            if m = /^(\w{40}) (.*?)$/.match(line)
-              next if !Regexp.new('^' + prefix).match(m[2])
-              name = m[2].sub("#{prefix}/", '')
+      if File.file?('packed-refs')
+        lines = File.readlines('packed-refs')
+        lines.each_with_index do |line, i|
+          if m = /^(\w{40}) (.*?)$/.match(line)
+            next if !Regexp.new('^' + orig_prefix).match(m[2])
+            name = m[2].sub("#{orig_prefix}/", '')
 
-              # Annotated tags in packed-refs include a reference
-              # to the commit object on the following line.
-              next_line = lines[i + 1]
+            # Annotated tags in packed-refs include a reference
+            # to the commit object on the following line.
+            next_line = lines[i + 1]
 
-              id =
-              if next_line && next_line[0] == ?^
-                next_line[1..-1].chomp
-              else
-                m[1]
-              end
+            id =
+            if next_line && next_line[0] == ?^
+              next_line[1..-1].chomp
+            else
+              m[1]
+            end
 
-              if !already[name]
-                refs << "#{name} #{id}"
-                already[name] = true
-              end
+            if !already[name]
+              refs << "#{name} #{id}"
+              already[name] = true
             end
           end
         end
+
       end
 
       refs.join("\n")
