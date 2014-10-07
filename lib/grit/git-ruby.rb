@@ -129,8 +129,9 @@ module Grit
         end
       end
 
-      if File.file?('packed-refs')
-        File.readlines('packed-refs').each do |line|
+      packed = File.join(@git_dir, 'packed-refs')
+      if File.file?(packed)
+        File.readlines(packed).each do |line|
           if m = /^(\w{40}) (.*?)$/.match(line)
             next if !Regexp.new('^' + orig_prefix).match(m[2])
             name = m[2].sub("#{orig_prefix}/", '')
@@ -164,8 +165,9 @@ module Grit
         end
       end
 
-      if File.file?('packed-refs')
-        lines = File.readlines('packed-refs')
+      packed = File.join(@git_dir, 'packed-refs')
+      if File.file?(packed)
+        lines = File.readlines(packed)
         lines.each_with_index do |line, i|
           if m = /^(\w{40}) (.*?)$/.match(line)
             next if !Regexp.new('^' + orig_prefix).match(m[2])
