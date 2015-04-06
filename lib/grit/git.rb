@@ -344,7 +344,7 @@ module Grit
           :timeout => (Grit::Git.git_timeout if timeout == true),
           :max     => (Grit::Git.git_max_size if timeout == true)
         }]))
-      process.out.default_encoding!
+
       Grit.log(process.out) if Grit.debug
       Grit.log(process.err) if Grit.debug
 
