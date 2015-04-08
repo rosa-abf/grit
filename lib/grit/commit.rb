@@ -198,9 +198,9 @@ module Grit
 
     def show
       if parents.size > 1
-        diff = @repo.git.native(:diff, {:full_index => true, :M => true}, "#{parents[0].id}...#{parents[1].id}")
+        diff = @repo.git.native(:diff, {:full_index => true}, "#{parents[0].id}...#{parents[1].id}")
       else
-        diff = @repo.git.show({:full_index => true, :pretty => 'raw', :M => true}, @id)
+        diff = @repo.git.show({:full_index => true, :pretty => 'raw'}, @id)
       end
 
       if diff =~ /diff --git a/
