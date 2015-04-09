@@ -201,13 +201,13 @@ module Grit
         diff = @repo.git.native(:diff, {:full_index => true}, "#{parents[0].id}...#{parents[1].id}")
       else
         diff = @repo.git.show({:full_index => true, :pretty => 'raw'}, @id)
+        if diff =~ /diff --git a/
+          diff = diff.sub(/\A.+?(diff --git a)/m, '\1')
+        else
+          diff = ''
+        end
       end
 
-      # if diff =~ /^diff --git a/
-      #   diff = diff.sub(/^.+?(diff --git a)/m, '\1')
-      # else
-      #   diff = ''
-      # end
       Diff.list_from_string(@repo, diff)
     end
 
