@@ -543,6 +543,7 @@ module Grit
       actual_options  = default_options.merge(options)
       arg = path ? [commit, '--', path] : [commit]
       commits = self.git.log(actual_options, *arg)
+      commits.gsub!(/\ngpgsig.*-----END PGP SIGNATURE-----\n/m, '')
       Commit.list_from_string(self, commits)
     end
 
