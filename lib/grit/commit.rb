@@ -137,6 +137,7 @@ module Grit
     # - it broke when 'encoding' was introduced - not sure what else might show up
     #
     def self.list_from_string(repo, text)
+      commits.gsub!(/\ngpgsig.*-----END PGP SIGNATURE-----\n/m, '')
       lines = text.split("\n")
 
       commits = []
