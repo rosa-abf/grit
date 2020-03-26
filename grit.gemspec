@@ -23,8 +23,10 @@ Gem::Specification.new do |s|
   s.add_dependency('posix-spawn', "~> 0.3.6")
   s.add_dependency('mime-types', "~> 1.15")
   s.add_dependency('diff-lcs', "~> 1.1")
+  s.add_dependency('rugged', "~> 0.99.0")
 
   s.add_development_dependency('mocha')
+  s.add_development_dependency('test-unit')
 
   # = MANIFEST =
   s.files = %w[

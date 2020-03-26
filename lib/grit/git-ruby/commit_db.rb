@@ -12,7 +12,7 @@ begin
       def initialize(git_obj, index_location = nil)
         @git = git_obj
         db_file = File.join(index_location || @git.git_dir, 'commit_db')
-        if !File.exists?(db_file)
+        if !File.exist?(db_file)
           @db = Sequel.open "sqlite:///#{db_file}"
           setup_tables
         else

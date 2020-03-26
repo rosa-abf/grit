@@ -43,6 +43,10 @@ module Grit
       @data ||= @repo.git.cat_file({:p => true}, id)
     end
 
+    def repo
+      @repo
+    end
+
     # The mime type of this file (based on the filename)
     #
     # Returns String

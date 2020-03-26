@@ -113,7 +113,7 @@ module Grit
     def self.find_all(repo, ref, options = {})
       allowed_options = [:max_count, :skip, :since]
 
-      default_options = {:pretty => "raw"}
+      default_options = {:pretty => "format:%H"}
       actual_options = default_options.merge(options)
 
       if ref
@@ -122,55 +122,18 @@ module Grit
         output = repo.git.rev_list(actual_options.merge(:all => true))
       end
 
-      self.list_from_string(repo, output)
-    rescue Grit::GitRuby::Repository::NoSuchShaFound
-      []
-    end
-
-    # Parse out commit information into an array of baked Commit objects
-    #   +repo+ is the Repo
-    #   +text+ is the text output from the git command (raw format)
-    #
-    # Returns Grit::Commit[] (baked)
-    #
-    # really should re-write this to be more accepting of non-standard commit messages
-    # - it broke when 'encoding' was introduced - not sure what else might show up
-    #
-    def self.list_from_string(repo, text)
-      text.gsub!(/\ngpgsig.*-----END PGP SIGNATURE-----\n/m, '')
-      lines = text.split("\n")
-
-      commits = []
-
-      while !lines.empty?
-        id = lines.shift.split.last
-        tree = lines.shift.split.last
-
-        parents = []
-        parents << lines.shift.split.last while lines.first =~ /^parent/
-
-        author_line = lines.shift
-        author_line << lines.shift if lines[0] !~ /^committer /
-        author, authored_date = self.actor(author_line)
-
-        committer_line = lines.shift
-        committer_line << lines.shift if lines[0] && lines[0] != '' && lines[0] !~ /^encoding/
-        committer, committed_date = self.actor(committer_line)
-
-        # not doing anything with this yet, but it's sometimes there
-        encoding = lines.shift.split.last if lines.first =~ /^encoding/
-
-        lines.shift
-
-        message_lines = []
-        message_lines << lines.shift[4..-1] while lines.first =~ /^ {4}/
-
-        lines.shift while lines.first && lines.first.empty?
-
-        commits << Commit.new(repo, id, parents, tree, author, authored_date, committer, committed_date, message_lines)
+      output.split("\n").map do |oid|
+        commit = repo.rugged.lookup(oid)
+        parents = commit.parents.map { |x| x.oid }
+        author = Grit::Actor.new(commit.author[:name], commit.author[:email])
+        authored_at = commit.author[:time]
+        committer = Grit::Actor.new(commit.committer[:name], commit.committer[:email])
+        committed_at = commit.committer[:time]
+        Commit.new(repo, commit.oid, parents,
+                   commit.tree.oid, author,
+                   authored_at, committer, committed_at,
+                   commit.message.split("\n"))
       end
-
-      commits
     end
 
     # Show diffs between two trees.

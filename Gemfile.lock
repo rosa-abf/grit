@@ -1,0 +1,32 @@
+PATH
+  remote: .
+  specs:
+    grit (2.5.0)
+      diff-lcs (~> 1.1)
+      mime-types (~> 1.15)
+      posix-spawn (~> 0.3.6)
+      rugged (~> 0.99.0)
+
+GEM
+  specs:
+    diff-lcs (1.3)
+    mime-types (1.25.1)
+    mocha (1.11.2)
+    posix-spawn (0.3.13)
+    power_assert (0.4.1)
+    rake (12.0.0)
+    rugged (0.99.0)
+    test-unit (3.2.3)
+      power_assert
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  grit!
+  mocha
+  rake
+  test-unit
+
+BUNDLED WITH
+   1.17.3

@@ -8,12 +8,14 @@ require 'time'
 require 'timeout'
 require 'logger'
 require 'digest/sha1'
+require 'pathname'
 
 # third party
 
 begin
   require 'mime/types'
   require 'rubygems'
+  require 'rugged'
 rescue LoadError
   require 'rubygems'
   begin
@@ -24,9 +26,7 @@ rescue LoadError
   end
 end
 
-# ruby 1.9 compatibility
 require 'grit/ruby1.9'
-
 # internal requires
 require 'grit/lazy'
 require 'grit/errors'

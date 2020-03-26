@@ -8,7 +8,6 @@ class TestCommit < Test::Unit::TestCase
   # __bake__
 
   def test_bake
-    Git.any_instance.expects(:rev_list).returns(fixture('rev_list_single'))
     @c = Commit.create(@r, :id => '4c8124ffcf4039d292442eeccabdeca5af5c5017')
     @c.author # bake
 

@@ -17,7 +17,7 @@ class TestRubyGit < Test::Unit::TestCase
 
     git = Git.new(temppath)
     git.init({})
-    assert File.exists?(File.join(temppath, 'config'))
+    assert File.exist?(File.join(temppath, 'config'))
   end
 
   def test_log_merge

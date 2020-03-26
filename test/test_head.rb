@@ -8,8 +8,9 @@ class TestHead < Test::Unit::TestCase
   # inspect
 
   def test_inspect
-    head = @r.heads[1]
-    assert_equal %Q{#<Grit::Head "test/master">}, head.inspect
+    @r.heads.each do |head|
+      assert_equal %Q{#<Grit::Head "#{head.name}">}, head.inspect
+    end
   end
 
   def test_master
@@ -31,7 +32,7 @@ class TestHead < Test::Unit::TestCase
   # heads with slashes
 
   def test_heads_with_slashes
-    head = @r.heads[3]
+    head = @r.heads.find { |x| x.name == 'test/chacon' }
     assert_equal %Q{#<Grit::Head "test/chacon">}, head.inspect
   end
 

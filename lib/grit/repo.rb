@@ -19,6 +19,8 @@ module Grit
     # Public: The Grit::Git command line interface object.
     attr_accessor :git
 
+    attr_accessor :rugged
+
     # Public: Create a new Repo instance.
     #
     # path    - The String path to either the root git directory or the bare
@@ -54,6 +56,12 @@ module Grit
       end
 
       self.git = Git.new(self.path)
+      opts = {}
+      alternates = self.git.fs_read('objects/info/alternates') rescue nil
+      if alternates
+        opts[:alternates] = resolve_all_alternates(File.join(path, 'objects/info/alternates'), path)
+      end
+      self.rugged = Rugged::Repository.new(self.path, opts)
     end
 
     # Public: Initialize a git repository (create it on the filesystem). By
@@ -539,11 +547,13 @@ module Grit
     #
     # Returns Grit::Commit[]
     def log(commit = 'master', path = nil, options = {})
-      default_options = {:pretty => "raw"}
+      default_options = {:pretty => 'format:%H'}
       actual_options  = default_options.merge(options)
       arg = path ? [commit, '--', path] : [commit]
       commits = self.git.log(actual_options, *arg)
-      Commit.list_from_string(self, commits)
+      commits.split("\n").map do |commit|
+        Commit.create(self, id: commit)
+      end
     end
 
     # The diff from commit +a+ to commit +b+, optionally restricted to the given file(s)
@@ -703,6 +713,35 @@ module Grit
     # Pretty object inspection
     def inspect
       %Q{#<Grit::Repo "#{@path}">}
+    end
+
+    private
+
+    def resolve_all_alternates(start, repo_path)
+      res = []
+      alternates = File.read(start) rescue nil
+      return [] if !alternates || alternates == ''
+      if alternates["\r\n"]
+        alternates = alternates.split("\r\n")
+      elsif alternates["\n"]
+        alternates = alternates.split("\n")
+      elsif alternates["\r"]
+        alternates = alternates.split("\r")
+      else
+        alternates = [alternates]
+      end
+      alternates.each do |alternate|
+        p = Pathname.new(alternate)
+        if p.absolute?
+          res << alternate
+          res += resolve_all_alternates(File.join(alternate, 'info/alternates'), alternate)
+        else
+          path = File.join(repo_path, 'objects', alternate)
+          res << path
+          res += resolve_all_alternates(File.join(path, 'info/alternates'), File.join(path, '..'))
+        end
+      end
+      res
     end
   end # Repo
 

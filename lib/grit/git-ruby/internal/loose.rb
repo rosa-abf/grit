@@ -72,7 +72,7 @@ module Grit
           sha1 = Digest::SHA1.hexdigest(store)
           path = @directory+'/'+sha1[0...2]+'/'+sha1[2..40]
 
-          if !File.exists?(path)
+          if !File.exist?(path)
             content = Zlib::Deflate.deflate(store)
 
             FileUtils.mkdir_p(@directory+'/'+sha1[0...2])

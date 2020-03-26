@@ -635,10 +635,10 @@ module Grit
       # initialize a git repository
       def self.init(dir, bare = true)
 
-        FileUtils.mkdir_p(dir) if !File.exists?(dir)
+        FileUtils.mkdir_p(dir) if !File.exist?(dir)
 
         FileUtils.cd(dir) do
-          if(File.exists?('objects'))
+          if(File.exist?('objects'))
             return false # already initialized
           else
             # initialize directory
@@ -703,7 +703,7 @@ module Grit
 
         def each_alternate_path(path)
           alt = File.join(path, 'info/alternates')
-          return if !File.exists?(alt)
+          return if !File.exist?(alt)
 
           File.readlines(alt).each do |line|
             path = line.chomp
@@ -732,7 +732,7 @@ module Grit
 
         def load_loose(path)
           @loaded << path
-          return if !File.exists?(path)
+          return if !File.exist?(path)
           @loose << Grit::GitRuby::Internal::LooseStorage.new(path)
         end
 
@@ -756,7 +756,7 @@ module Grit
 
         def load_packs(path)
           @loaded_packs << path
-          return if !File.exists?(path)
+          return if !File.exist?(path)
            Dir.open(path) do |dir|
             dir.each do |entry|
               next if !(entry =~ /\.pack$/i)
