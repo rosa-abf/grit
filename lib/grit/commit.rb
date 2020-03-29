@@ -137,6 +137,8 @@ module Grit
                    commit.message.split("\n"))
       end
       res
+    rescue Grit::GitRuby::Repository::NoSuchShaFound
+      []
     end
 
     # Show diffs between two trees.
