@@ -122,18 +122,21 @@ module Grit
         output = repo.git.rev_list(actual_options.merge(:all => true))
       end
 
-      output.split("\n").map do |oid|
+      res = []
+      output.split("\n").each do |oid|
+        next if oid.start_with?('commit')
         commit = repo.rugged.lookup(oid)
         parents = commit.parents.map { |x| x.oid }
         author = Grit::Actor.new(commit.author[:name], commit.author[:email])
         authored_at = commit.author[:time]
         committer = Grit::Actor.new(commit.committer[:name], commit.committer[:email])
         committed_at = commit.committer[:time]
-        Commit.new(repo, commit.oid, parents,
+        res << Commit.new(repo, commit.oid, parents,
                    commit.tree.oid, author,
                    authored_at, committer, committed_at,
                    commit.message.split("\n"))
       end
+      res
     end
 
     # Show diffs between two trees.
