@@ -125,7 +125,12 @@ module Grit
       res = []
       output.split("\n").each do |oid|
         next if oid.start_with?('commit')
-        commit = repo.rugged.lookup(oid)
+        obj = repo.rugged.lookup(oid)
+        if obj.is_a?(Rugged::Tag) || obj.is_a?(Rugged::Tag::Annotation)
+          commit = obj.target
+        else
+          commit = obj
+        end
         parents = commit.parents.map { |x| x.oid }
         author = Grit::Actor.new(commit.author[:name], commit.author[:email])
         authored_at = commit.author[:time]
