@@ -117,9 +117,9 @@ module Grit
       actual_options = default_options.merge(options)
 
       if ref
-        output = repo.git.rev_list(actual_options, ref)
+        output = repo.git.native(:rev_list, actual_options, ref)
       else
-        output = repo.git.rev_list(actual_options.merge(:all => true))
+        output = repo.git.native(:rev_list, actual_options.merge(:all => true))
       end
 
       res = []
